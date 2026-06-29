@@ -20,6 +20,8 @@ endpoint for remote clients on a host/port you control.
 - The default bind host is `127.0.0.1`.
 - Bind `OMNIFOCUS_MCP_HOST` to a Tailscale/private interface when remote access is
   needed. Do not bind this service to a public interface.
+- For HTTPS over a tailnet, prefer `pnpm start:tailscale`. It keeps the bridge
+  on localhost and exposes it through Tailscale Serve at `/omnifocus-mcp`.
 - The bridge is read-only by default. Mutating OmniFocus tools are hidden and
   rejected unless `OMNIFOCUS_MCP_READ_ONLY=false` is set explicitly.
 - `.env` is loaded automatically when present. Values already present in the
@@ -111,6 +113,36 @@ Clients must send:
 ```text
 Authorization: Bearer replace-with-a-long-random-token
 ```
+
+## Tailscale Serve
+
+For authenticated remote access over tailnet HTTPS, use:
+
+```sh
+pnpm start:tailscale
+```
+
+This starts the local bridge on `127.0.0.1:${OMNIFOCUS_MCP_PORT:-3050}` and then
+runs Tailscale Serve in the foreground:
+
+```sh
+tailscale serve --set-path /omnifocus-mcp http://127.0.0.1:3050/mcp
+```
+
+Do not add `--bg`; the wrapper keeps Tailscale Serve tied to the bridge process
+lifecycle. If Tailscale Serve exits, the bridge exits. If the bridge receives
+`SIGINT` or `SIGTERM`, the wrapper stops Tailscale Serve and closes the upstream
+OmniFocus child process.
+
+The remote MCP endpoint is:
+
+```text
+https://<mac-name>.<tailnet>.ts.net/omnifocus-mcp
+```
+
+The wrapper checks the current Tailscale Serve config before starting. It refuses
+to overwrite an existing `/omnifocus-mcp` route, leaves unrelated Serve routes
+alone, and never runs `tailscale serve reset`.
 
 ## Development
 
