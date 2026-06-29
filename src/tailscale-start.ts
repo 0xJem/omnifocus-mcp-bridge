@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { pathToFileURL } from "node:url";
 import { loadConfig } from "./config.js";
+import { parseRuntimeArgs } from "./runtime-args.js";
 import { startBridge } from "./server.js";
 import {
   buildTailscaleServeArgs,
@@ -10,8 +11,11 @@ import {
 } from "./tailscale.js";
 import { connectUpstream } from "./upstream.js";
 
-export async function run(): Promise<void> {
-  const config = loadConfig();
+export async function run(args: string[] = process.argv.slice(2)): Promise<void> {
+  const runtimeArgs = parseRuntimeArgs(args);
+  const config = loadConfig(process.env, {
+    verbose: runtimeArgs.verbose,
+  });
   if (config.host !== "127.0.0.1" && config.host !== "localhost") {
     throw new Error("Tailscale Serve mode requires OMNIFOCUS_MCP_HOST=127.0.0.1.");
   }
@@ -20,12 +24,14 @@ export async function run(): Promise<void> {
 
   const upstream = await connectUpstream(config.upstreamCommand, config.upstreamArgs);
   const runtime = await startBridge(config, upstream);
-  const args = buildTailscaleServeArgs(runtime);
+  const serveArgs = buildTailscaleServeArgs(runtime);
 
   console.error(
-    `omnifocus-mcp-bridge local=${runtime.url.href} readOnly=${String(config.readOnly)} upstreamBin=${config.upstreamBinPath}`,
+    `omnifocus-mcp-bridge local=${runtime.url.href} readOnly=${String(config.readOnly)} verbose=${String(config.verbose)} upstreamBin=${config.upstreamBinPath}`,
   );
-  console.error(`tailscale serve path=${TAILSCALE_SERVE_PATH} command=tailscale ${args.join(" ")}`);
+  console.error(
+    `tailscale serve path=${TAILSCALE_SERVE_PATH} command=tailscale ${serveArgs.join(" ")}`,
+  );
 
   const tailscale = startTailscaleServe(runtime);
   let shuttingDown = false;

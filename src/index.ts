@@ -1,16 +1,20 @@
 #!/usr/bin/env node
 import { pathToFileURL } from "node:url";
 import { loadConfig } from "./config.js";
+import { parseRuntimeArgs } from "./runtime-args.js";
 import { startBridge } from "./server.js";
 import { connectUpstream } from "./upstream.js";
 
-export async function run(): Promise<void> {
-  const config = loadConfig();
+export async function run(args: string[] = process.argv.slice(2)): Promise<void> {
+  const runtimeArgs = parseRuntimeArgs(args);
+  const config = loadConfig(process.env, {
+    verbose: runtimeArgs.verbose,
+  });
   const upstream = await connectUpstream(config.upstreamCommand, config.upstreamArgs);
   const runtime = await startBridge(config, upstream);
 
   console.error(
-    `omnifocus-mcp-bridge listening on ${runtime.url.href} readOnly=${String(config.readOnly)} upstreamBin=${config.upstreamBinPath}`,
+    `omnifocus-mcp-bridge listening on ${runtime.url.href} readOnly=${String(config.readOnly)} verbose=${String(config.verbose)} upstreamBin=${config.upstreamBinPath}`,
   );
 
   const shutdown = async () => {

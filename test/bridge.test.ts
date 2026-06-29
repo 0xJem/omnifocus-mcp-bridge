@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chmod, mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { afterEach, describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { DEFAULT_TOKEN_FILE, loadConfig } from "../src/config.js";
@@ -46,6 +46,27 @@ describe("config", () => {
     });
 
     expect(config.readOnly).toBe(true);
+  });
+
+  test("enables verbose mode from env or load options", () => {
+    expect(
+      loadConfig({
+        OMNIFOCUS_MCP_TOKEN: "test-token",
+        OMNIFOCUS_MCP_VERBOSE: "true",
+      }).verbose,
+    ).toBe(true);
+
+    expect(
+      loadConfig(
+        {
+          OMNIFOCUS_MCP_TOKEN: "test-token",
+          OMNIFOCUS_MCP_VERBOSE: "false",
+        },
+        {
+          verbose: true,
+        },
+      ).verbose,
+    ).toBe(true);
   });
 
   test("loads bearer token from the default private token file without .env", async () => {
@@ -222,9 +243,43 @@ describe("bridge server", () => {
     );
     await client.close();
   });
+
+  test("verbose mode logs redacted request metadata", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    runtime = await startTestBridge({
+      verbose: true,
+    });
+
+    const response = await fetch(runtime.url, {
+      method: "POST",
+      headers: {
+        authorization: "Bearer wrong-secret-value",
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {},
+      }),
+    });
+
+    expect(response.status).toBe(401);
+    const logOutput = consoleError.mock.calls.map((call) => call.join(" ")).join("\n");
+    consoleError.mockRestore();
+
+    expect(logOutput).toContain("[request]");
+    expect(logOutput).toContain('"method":"POST"');
+    expect(logOutput).toContain('"path":"/mcp"');
+    expect(logOutput).toContain('"statusCode":401');
+    expect(logOutput).toContain('"authorized":false');
+    expect(logOutput).toContain('"hasAuthorizationHeader":true');
+    expect(logOutput).not.toContain("wrong-secret-value");
+  });
 });
 
-async function startTestBridge(): Promise<BridgeRuntime> {
+async function startTestBridge(options: { verbose?: boolean } = {}): Promise<BridgeRuntime> {
   upstream = await connectUpstream(process.execPath, [fakeUpstreamPath]);
   return startBridge(
     {
@@ -235,6 +290,7 @@ async function startTestBridge(): Promise<BridgeRuntime> {
       upstreamCommand: process.execPath,
       upstreamArgs: [fakeUpstreamPath],
       upstreamBinPath: fakeUpstreamPath,
+      verbose: options.verbose ?? false,
     },
     upstream,
   );

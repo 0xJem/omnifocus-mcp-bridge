@@ -39,6 +39,7 @@ endpoint for remote clients on a host/port you control.
 | `OMNIFOCUS_MCP_HOST` | `127.0.0.1` | HTTP bind host. Use a private/Tailscale address for remote access. |
 | `OMNIFOCUS_MCP_PORT` | `3050` | HTTP bind port. |
 | `OMNIFOCUS_MCP_READ_ONLY` | `true` | Set to `false` to expose mutating upstream tools. |
+| `OMNIFOCUS_MCP_VERBOSE` | `false` | Set to `true` to log redacted request metadata for diagnostics. |
 | `OMNIFOCUS_MCP_UPSTREAM_COMMAND` | Node executable | Optional override for the stdio upstream command. |
 | `OMNIFOCUS_MCP_UPSTREAM_ARGS` | dependency bin path | Optional override args. Supports JSON arrays or shell-like quoted strings. |
 
@@ -129,6 +130,7 @@ The normal startup path does not require a `.env` file. Built-in defaults are:
 - `OMNIFOCUS_MCP_HOST=127.0.0.1`
 - `OMNIFOCUS_MCP_PORT=3050`
 - `OMNIFOCUS_MCP_READ_ONLY=true`
+- `OMNIFOCUS_MCP_VERBOSE=false`
 - default upstream command resolved from the pinned `omnifocus-mcp-enhanced`
   dependency
 - default token file `.secrets/omnifocus-mcp-token`
@@ -162,6 +164,34 @@ https://<mac-name>.<tailnet>.ts.net/omnifocus-mcp
 The wrapper checks the current Tailscale Serve config before starting. It refuses
 to overwrite an existing `/omnifocus-mcp` route, leaves unrelated Serve routes
 alone, and never runs `tailscale serve reset`.
+
+## Diagnostics
+
+Use verbose mode when debugging client, broker, or Tailscale Serve access:
+
+```sh
+pnpm start:tailscale -- --verbose
+```
+
+or:
+
+```sh
+OMNIFOCUS_MCP_VERBOSE=true pnpm start:tailscale
+```
+
+Verbose mode logs one redacted line per HTTP request after the response finishes.
+It includes method, path, status code, duration, remote address, forwarded-for,
+user agent, content type, accept header, whether an Authorization header was
+present, and whether bearer auth passed. It does not log bearer token values or
+request bodies.
+
+If a client receives `502 Bad Gateway` from the Tailscale URL and no verbose
+request log appears, the request did not reach the bridge. Check that the local
+bridge is listening on `127.0.0.1:3050` and that `tailscale serve status --json`
+still maps `/omnifocus-mcp` to `http://127.0.0.1:3050/mcp`.
+
+If a verbose request log appears with `statusCode:401`, the request reached the
+bridge but the bearer token was missing or invalid.
 
 ## Development
 

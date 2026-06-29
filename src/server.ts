@@ -1,4 +1,10 @@
-import { createServer, type Server as HttpServer } from "node:http";
+import { randomUUID } from "node:crypto";
+import {
+  createServer,
+  type IncomingMessage,
+  type Server as HttpServer,
+  type ServerResponse,
+} from "node:http";
 import { URL } from "node:url";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
@@ -33,12 +39,16 @@ export async function startBridge(
   upstream: UpstreamConnection,
 ): Promise<BridgeRuntime> {
   const httpServer = createServer(async (req, res) => {
+    const requestLog = startRequestLog(config, req, res);
     if (!isBearerAuthorized(req, config.token)) {
+      requestLog.authorized = false;
       writeUnauthorized(res);
       return;
     }
+    requestLog.authorized = true;
 
     const url = new URL(req.url ?? "/", `http://${req.headers.host ?? config.host}`);
+    requestLog.path = url.pathname;
     if (url.pathname !== "/mcp") {
       res.writeHead(404, { "content-type": "application/json" });
       res.end(JSON.stringify({ error: "not_found" }));
@@ -60,6 +70,7 @@ export async function startBridge(
         await facade.close().catch(() => undefined);
       }
     } catch (error) {
+      requestLog.error = error instanceof Error ? error.message : String(error);
       if (!res.headersSent) {
         res.writeHead(500, { "content-type": "application/json" });
         res.end(
@@ -115,6 +126,53 @@ export async function startBridge(
       await upstream.close();
     },
   };
+}
+
+type RequestLogState = {
+  authorized: boolean | undefined;
+  error: string | undefined;
+  path: string;
+};
+
+function startRequestLog(
+  config: BridgeConfig,
+  req: IncomingMessage,
+  res: ServerResponse,
+): RequestLogState {
+  const state: RequestLogState = {
+    authorized: undefined,
+    error: undefined,
+    path: req.url ?? "/",
+  };
+
+  if (!config.verbose) {
+    return state;
+  }
+
+  const startedAt = process.hrtime.bigint();
+  const requestId = randomUUID();
+  res.on("finish", () => {
+    const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+    const fields = {
+      requestId,
+      method: req.method ?? "UNKNOWN",
+      path: state.path,
+      statusCode: res.statusCode,
+      durationMs: Math.round(durationMs * 100) / 100,
+      authorized: state.authorized,
+      hasAuthorizationHeader: typeof req.headers.authorization === "string",
+      remoteAddress: req.socket.remoteAddress,
+      forwardedFor: req.headers["x-forwarded-for"],
+      userAgent: req.headers["user-agent"],
+      contentType: req.headers["content-type"],
+      accept: req.headers.accept,
+      error: state.error,
+    };
+
+    console.error(`[request] ${JSON.stringify(fields)}`);
+  });
+
+  return state;
 }
 
 function createFacadeServer(upstream: Client, policy: { readOnly: boolean }): Server {

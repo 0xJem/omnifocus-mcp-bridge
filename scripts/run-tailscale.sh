@@ -8,4 +8,4 @@ if [ ! -f dist/tailscale-start.js ]; then
   pnpm run build
 fi
 
-exec node dist/tailscale-start.js
+exec node dist/tailscale-start.js "$@"

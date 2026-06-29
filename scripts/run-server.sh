@@ -8,4 +8,4 @@ if [ ! -f dist/index.js ]; then
   pnpm run build
 fi
 
-exec node dist/index.js
+exec node dist/index.js "$@"

@@ -13,10 +13,12 @@ export type BridgeConfig = {
   upstreamCommand: string;
   upstreamArgs: string[];
   upstreamBinPath: string;
+  verbose: boolean;
 };
 
 export type ConfigLoadOptions = {
   cwd?: string;
+  verbose?: boolean;
 };
 
 type EnvSources = {
@@ -54,6 +56,7 @@ export function loadConfig(
     upstreamCommand,
     upstreamArgs,
     upstreamBinPath: resolvedUpstream.binPath,
+    verbose: options.verbose ?? parseBoolean(effectiveEnv.OMNIFOCUS_MCP_VERBOSE, false),
   };
 }
 
@@ -134,8 +137,16 @@ function assertPrivateFile(filePath: string): void {
 }
 
 export function parseReadOnly(value: string | undefined): boolean {
+  return parseBoolean(value, true, "OMNIFOCUS_MCP_READ_ONLY");
+}
+
+function parseBoolean(
+  value: string | undefined,
+  defaultValue: boolean,
+  name: string = "boolean value",
+): boolean {
   if (value === undefined || value.trim() === "") {
-    return true;
+    return defaultValue;
   }
 
   switch (value.trim().toLowerCase()) {
@@ -150,7 +161,7 @@ export function parseReadOnly(value: string | undefined): boolean {
     case "on":
       return true;
     default:
-      throw new Error("OMNIFOCUS_MCP_READ_ONLY must be true or false.");
+      throw new Error(`${name} must be true or false.`);
   }
 }
 
