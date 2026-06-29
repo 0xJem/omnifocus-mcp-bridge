@@ -97,7 +97,7 @@ mkdir -p .secrets
 umask 077
 printf '%s\n' 'replace-with-a-long-random-token' > .secrets/omnifocus-mcp-token
 cp .env.example .env
-pnpm start
+pnpm run server
 ```
 
 The MCP endpoint is:
@@ -124,3 +124,7 @@ pnpm build
 
 The smoke tests use a fake stdio MCP child process. They do not launch
 OmniFocus or call the real upstream package.
+
+`pnpm run server` is the convenience runner for local operation. It builds
+`dist/index.js` when needed, then starts the bridge with the normal `.env` and
+environment-variable loading rules.
