@@ -116,6 +116,8 @@ Authorization: Bearer replace-with-a-long-random-token
 
 ```sh
 pnpm install
+pnpm run format:check
+pnpm run lint
 pnpm test
 pnpm build
 ```

@@ -36,7 +36,10 @@ export function resolveDefaultUpstream(): ResolvedUpstream {
   };
 }
 
-export async function connectUpstream(command: string, args: string[]): Promise<UpstreamConnection> {
+export async function connectUpstream(
+  command: string,
+  args: string[],
+): Promise<UpstreamConnection> {
   const transport = new StdioClientTransport({
     command,
     args,
