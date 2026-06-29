@@ -3,6 +3,8 @@ import path from "node:path";
 import { parse as parseDotenv } from "dotenv";
 import { resolveDefaultUpstream } from "./upstream.js";
 
+export const DEFAULT_TOKEN_FILE = ".secrets/omnifocus-mcp-token";
+
 export type BridgeConfig = {
   token: string;
   host: string;
@@ -29,10 +31,10 @@ export function loadConfig(
   const cwd = options.cwd ?? process.cwd();
   const sources = loadEnvSources(env, cwd);
   const effectiveEnv = sources.env;
-  const token = resolveToken(effectiveEnv, sources.tokenFileBaseDir);
+  const token = resolveToken(effectiveEnv, sources.tokenFileBaseDir, cwd);
   if (!token) {
     throw new Error(
-      "OMNIFOCUS_MCP_TOKEN or OMNIFOCUS_MCP_TOKEN_FILE is required; refusing to start without bearer auth.",
+      `OMNIFOCUS_MCP_TOKEN, OMNIFOCUS_MCP_TOKEN_FILE, or ${DEFAULT_TOKEN_FILE} is required; refusing to start without bearer auth.`,
     );
   }
 
@@ -87,7 +89,11 @@ function loadEnvFile(filePath: string, required: boolean): Record<string, string
   return parseDotenv(readFileSync(filePath));
 }
 
-function resolveToken(env: NodeJS.ProcessEnv, tokenFileBaseDir: string): string | undefined {
+function resolveToken(
+  env: NodeJS.ProcessEnv,
+  tokenFileBaseDir: string,
+  cwd: string,
+): string | undefined {
   const directToken = env.OMNIFOCUS_MCP_TOKEN?.trim();
   if (directToken) {
     return directToken;
@@ -95,12 +101,21 @@ function resolveToken(env: NodeJS.ProcessEnv, tokenFileBaseDir: string): string 
 
   const tokenFile = env.OMNIFOCUS_MCP_TOKEN_FILE?.trim();
   if (!tokenFile) {
-    return undefined;
+    const defaultTokenFilePath = path.resolve(cwd, DEFAULT_TOKEN_FILE);
+    if (!existsSync(defaultTokenFilePath)) {
+      return undefined;
+    }
+
+    return readTokenFile(defaultTokenFilePath);
   }
 
   const tokenFilePath = path.isAbsolute(tokenFile)
     ? tokenFile
     : path.resolve(tokenFileBaseDir, tokenFile);
+  return readTokenFile(tokenFilePath);
+}
+
+function readTokenFile(tokenFilePath: string): string | undefined {
   assertPrivateFile(tokenFilePath);
   const token = readFileSync(tokenFilePath, "utf8").trim();
   return token.length > 0 ? token : undefined;

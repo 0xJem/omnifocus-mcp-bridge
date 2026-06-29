@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { afterEach, describe, expect, test } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { loadConfig } from "../src/config.js";
+import { DEFAULT_TOKEN_FILE, loadConfig } from "../src/config.js";
 import { startBridge, type BridgeRuntime } from "../src/server.js";
 import { connectUpstream, type UpstreamConnection } from "../src/upstream.js";
 
@@ -27,12 +27,17 @@ afterEach(async () => {
 });
 
 describe("config", () => {
-  test("fails closed when the bearer token is missing", () => {
+  test("fails closed when the bearer token is missing", async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), "omnifocus-bridge-"));
+
     expect(() =>
-      loadConfig({
-        OMNIFOCUS_MCP_TOKEN: "",
-      }),
-    ).toThrow(/OMNIFOCUS_MCP_TOKEN or OMNIFOCUS_MCP_TOKEN_FILE is required/);
+      loadConfig(
+        {
+          OMNIFOCUS_MCP_TOKEN: "",
+        },
+        { cwd: tempDir },
+      ),
+    ).toThrow(/OMNIFOCUS_MCP_TOKEN, OMNIFOCUS_MCP_TOKEN_FILE, or \.secrets/);
   });
 
   test("defaults remote access to read-only mode", () => {
@@ -40,6 +45,20 @@ describe("config", () => {
       OMNIFOCUS_MCP_TOKEN: "test-token",
     });
 
+    expect(config.readOnly).toBe(true);
+  });
+
+  test("loads bearer token from the default private token file without .env", async () => {
+    const tempDir = await mkdtemp(path.join(tmpdir(), "omnifocus-bridge-"));
+    const tokenPath = path.join(tempDir, DEFAULT_TOKEN_FILE);
+    await mkdir(path.dirname(tokenPath));
+    await writeFile(tokenPath, "default-file-token\n", { mode: 0o600 });
+
+    const config = loadConfig({}, { cwd: tempDir });
+
+    expect(config.token).toBe("default-file-token");
+    expect(config.host).toBe("127.0.0.1");
+    expect(config.port).toBe(3050);
     expect(config.readOnly).toBe(true);
   });
 

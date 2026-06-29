@@ -16,6 +16,7 @@
     "start": "scripts/run-server.sh",
     "start:tailscale": "scripts/run-tailscale.sh",
     "test": "vitest run",
+    "token:generate": "scripts/generate-token.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

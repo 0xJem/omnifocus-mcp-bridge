@@ -12,10 +12,12 @@ endpoint for remote clients on a host/port you control.
 
 - `OMNIFOCUS_MCP_TOKEN_FILE` is preferred for the bearer secret. The file must be
   readable only by the owner, for example mode `0600`.
+- When no token environment variables are set, the bridge looks for
+  `.secrets/omnifocus-mcp-token` in the repository root.
 - `OMNIFOCUS_MCP_TOKEN` is still supported for service managers that inject
   secrets directly, and it overrides `OMNIFOCUS_MCP_TOKEN_FILE`.
-- The bridge refuses to start without either `OMNIFOCUS_MCP_TOKEN_FILE` or
-  `OMNIFOCUS_MCP_TOKEN`.
+- The bridge refuses to start without `OMNIFOCUS_MCP_TOKEN`,
+  `OMNIFOCUS_MCP_TOKEN_FILE`, or the default private token file.
 - Every HTTP request must include `Authorization: Bearer <token>`.
 - The default bind host is `127.0.0.1`.
 - Bind `OMNIFOCUS_MCP_HOST` to a Tailscale/private interface when remote access is
@@ -31,7 +33,7 @@ endpoint for remote clients on a host/port you control.
 
 | Variable | Default | Description |
 | --- | --- | --- |
-| `OMNIFOCUS_MCP_TOKEN_FILE` | none | Preferred path to a private file containing the bearer token. |
+| `OMNIFOCUS_MCP_TOKEN_FILE` | `.secrets/omnifocus-mcp-token` when present | Preferred path to a private file containing the bearer token. |
 | `OMNIFOCUS_MCP_TOKEN` | none | Direct bearer token override. Avoid inline shell usage because it can leak through history. |
 | `OMNIFOCUS_MCP_ENV_FILE` | `.env` when present | Optional dotenv file path. If explicitly set, the file must exist. |
 | `OMNIFOCUS_MCP_HOST` | `127.0.0.1` | HTTP bind host. Use a private/Tailscale address for remote access. |
@@ -95,10 +97,7 @@ mutation is intended.
 pnpm install
 pnpm build
 
-mkdir -p .secrets
-umask 077
-printf '%s\n' 'replace-with-a-long-random-token' > .secrets/omnifocus-mcp-token
-cp .env.example .env
+pnpm token:generate
 pnpm start
 ```
 
@@ -113,6 +112,26 @@ Clients must send:
 ```text
 Authorization: Bearer replace-with-a-long-random-token
 ```
+
+`pnpm token:generate` writes a random bearer token to
+`.secrets/omnifocus-mcp-token` with private file permissions. It refuses to
+overwrite an existing token unless you explicitly rotate it:
+
+```sh
+pnpm token:generate -- --force
+```
+
+The token value is not printed. Read it from `.secrets/omnifocus-mcp-token` when
+configuring an MCP client.
+
+The normal startup path does not require a `.env` file. Built-in defaults are:
+
+- `OMNIFOCUS_MCP_HOST=127.0.0.1`
+- `OMNIFOCUS_MCP_PORT=3050`
+- `OMNIFOCUS_MCP_READ_ONLY=true`
+- default upstream command resolved from the pinned `omnifocus-mcp-enhanced`
+  dependency
+- default token file `.secrets/omnifocus-mcp-token`
 
 ## Tailscale Serve
 
