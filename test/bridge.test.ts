@@ -35,6 +35,14 @@ describe("config", () => {
     ).toThrow(/OMNIFOCUS_MCP_TOKEN or OMNIFOCUS_MCP_TOKEN_FILE is required/);
   });
 
+  test("defaults remote access to read-only mode", () => {
+    const config = loadConfig({
+      OMNIFOCUS_MCP_TOKEN: "test-token",
+    });
+
+    expect(config.readOnly).toBe(true);
+  });
+
   test("loads non-secret config from .env and bearer token from a private file", async () => {
     const tempDir = await mkdtemp(path.join(tmpdir(), "omnifocus-bridge-"));
     const tokenPath = path.join(tempDir, "token");
