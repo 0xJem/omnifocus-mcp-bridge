@@ -17,13 +17,29 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
     `omnifocus-mcp-bridge listening on ${runtime.url.href} readOnly=${String(config.readOnly)} verbose=${String(config.verbose)} upstreamBin=${config.upstreamBinPath}`,
   );
 
-  const shutdown = async () => {
+  let shuttingDown = false;
+  const shutdown = async (exitCode: number) => {
+    if (shuttingDown) {
+      return;
+    }
+    shuttingDown = true;
     await runtime.close();
-    process.exit(0);
+    process.exit(exitCode);
   };
 
-  process.once("SIGINT", shutdown);
-  process.once("SIGTERM", shutdown);
+  upstream.onClose(() => {
+    if (!shuttingDown) {
+      console.error("upstream stdio MCP process exited; shutting down bridge");
+      void shutdown(1);
+    }
+  });
+
+  process.once("SIGINT", () => {
+    void shutdown(0);
+  });
+  process.once("SIGTERM", () => {
+    void shutdown(0);
+  });
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

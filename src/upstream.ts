@@ -19,6 +19,7 @@ export type ResolvedUpstream = {
 export type UpstreamConnection = {
   client: Client;
   transport: StdioClientTransport;
+  onClose: (listener: () => void) => void;
   close: () => Promise<void>;
 };
 
@@ -60,6 +61,9 @@ export async function connectUpstream(
   return {
     client,
     transport,
+    onClose: (listener: () => void) => {
+      transport.onclose = listener;
+    },
     close: async () => {
       await client.close();
     },

@@ -166,6 +166,18 @@ describe("upstream child process", () => {
     const tools = await upstream.client.listTools();
     expect(tools.tools.map((tool) => tool.name)).toContain("dump_database");
   });
+
+  test("notifies when the stdio MCP child process closes", async () => {
+    upstream = await connectUpstream(process.execPath, [fakeUpstreamPath]);
+
+    const closed = new Promise<void>((resolve) => {
+      upstream?.onClose(resolve);
+    });
+    await upstream.close();
+    upstream = undefined;
+
+    await expect(closed).resolves.toBeUndefined();
+  });
 });
 
 describe("bridge server", () => {

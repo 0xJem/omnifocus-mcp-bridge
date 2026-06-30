@@ -46,6 +46,13 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
     process.exit(exitCode);
   };
 
+  upstream.onClose(() => {
+    if (!shuttingDown) {
+      console.error("upstream stdio MCP process exited; shutting down bridge");
+      void shutdown(1);
+    }
+  });
+
   process.once("SIGINT", () => {
     void shutdown(0);
   });
@@ -56,6 +63,10 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
   tailscale.once("exit", (code, signal) => {
     const exitCode = code ?? (signal === null ? 0 : 1);
     void shutdown(exitCode);
+  });
+  tailscale.once("error", (error) => {
+    console.error(`tailscale serve failed to start: ${error.message}`);
+    void shutdown(1);
   });
 }
 
