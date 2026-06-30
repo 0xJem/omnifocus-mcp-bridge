@@ -3,9 +3,31 @@
 Authenticated Streamable HTTP bridge for
 [`omnifocus-mcp-enhanced`](https://github.com/jqlts1/omnifocus-mcp-enhanced).
 
-The bridge stays separate from the upstream server repo. It installs
-`omnifocus-mcp-enhanced` as a pinned dependency, launches it as a local child
-stdio MCP process, and exposes an authenticated HTTP MCP endpoint.
+Use this when an MCP client needs remote access to OmniFocus on your Mac. The
+upstream OmniFocus MCP server is a local stdio process; this repo wraps it in a
+small authenticated Streamable HTTP server.
+
+What it does:
+
+- installs the published `omnifocus-mcp-enhanced` package as a pinned dependency
+- launches that package locally as a child stdio MCP process
+- exposes MCP over HTTP at `/mcp`
+- requires Bearer auth on every request
+- defaults to read-only tool exposure
+- optionally publishes the bridge through Tailscale Serve at `/omnifocus-mcp`
+
+What it does not do:
+
+- it does not import upstream server internals
+- it does not require the upstream repo to become a monorepo
+- it does not make OmniFocus itself remote; OmniFocus stays on the Mac
+
+## Requirements
+
+- macOS with OmniFocus installed and automation access allowed
+- Node.js 20+
+- pnpm 11+
+- Tailscale, only if using `pnpm start:tailscale`
 
 ## Quick Start
 
@@ -25,6 +47,18 @@ Clients must send:
 
 ```text
 Authorization: Bearer <contents of .secrets/omnifocus-mcp-token>
+```
+
+Smoke test:
+
+```sh
+TOKEN="$(cat .secrets/omnifocus-mcp-token)"
+
+curl -i http://127.0.0.1:3050/mcp \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  --data '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
 `pnpm token:generate` writes `.secrets/omnifocus-mcp-token` with private
