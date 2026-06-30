@@ -18,6 +18,18 @@ describe("runner scripts", () => {
     expect(script).not.toMatch(/if \[ ! -f dist\//);
   });
 
+  test("launch agent log script tails stdout and stderr logs", async () => {
+    const script = await readFile(
+      path.join(repoRoot, "scripts", "tail-launch-agent-logs.sh"),
+      "utf8",
+    );
+
+    expect(script).toContain("$HOME/Library/Logs/omnifocus-mcp-bridge");
+    expect(script).toContain("out.log");
+    expect(script).toContain("err.log");
+    expect(script).toContain("tail -n 200 -f");
+  });
+
   test("launch agent template uses the com.0xjem service shape", async () => {
     const template = await readFile(
       path.join(repoRoot, "launchd", "com.0xjem.omnifocus-mcp-bridge.plist.template"),

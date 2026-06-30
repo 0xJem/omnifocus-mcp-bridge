@@ -150,7 +150,7 @@ Check status:
 
 ```sh
 launchctl print "gui/$(id -u)/com.0xjem.omnifocus-mcp-bridge"
-tail -f ~/Library/Logs/omnifocus-mcp-bridge/err.log
+pnpm launchd:logs
 ```
 
 Uninstall:

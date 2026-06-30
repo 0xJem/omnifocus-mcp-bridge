@@ -13,6 +13,7 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "launchd:install": "scripts/install-launch-agent.sh",
+    "launchd:logs": "scripts/tail-launch-agent-logs.sh",
     "launchd:uninstall": "scripts/uninstall-launch-agent.sh",
     "lint": "biome lint .",
     "start": "scripts/run-server.sh",
