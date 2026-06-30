@@ -1,73 +1,104 @@
 # omnifocus-mcp-bridge
 
-Authenticated Streamable HTTP bridge for the published
-[`omnifocus-mcp-enhanced`](https://github.com/jqlts1/omnifocus-mcp-enhanced)
-stdio MCP server.
+Authenticated Streamable HTTP bridge for
+[`omnifocus-mcp-enhanced`](https://github.com/jqlts1/omnifocus-mcp-enhanced).
 
-This repository is intentionally separate from the upstream server code. It
-installs `omnifocus-mcp-enhanced` as a pinned npm dependency, launches that
-package as a local child stdio MCP process, and exposes a private HTTP MCP
-endpoint for remote clients on a host/port you control.
+The bridge stays separate from the upstream server repo. It installs
+`omnifocus-mcp-enhanced` as a pinned dependency, launches it as a local child
+stdio MCP process, and exposes an authenticated HTTP MCP endpoint.
 
-## Security Model
+## Quick Start
 
-- `OMNIFOCUS_MCP_TOKEN_FILE` is preferred for the bearer secret. The file must be
-  readable only by the owner, for example mode `0600`.
-- When no token environment variables are set, the bridge looks for
-  `.secrets/omnifocus-mcp-token` in the repository root.
-- `OMNIFOCUS_MCP_TOKEN` is still supported for service managers that inject
-  secrets directly, and it overrides `OMNIFOCUS_MCP_TOKEN_FILE`.
+```sh
+pnpm install
+pnpm token:generate
+pnpm start
+```
+
+Default local endpoint:
+
+```text
+http://127.0.0.1:3050/mcp
+```
+
+Clients must send:
+
+```text
+Authorization: Bearer <contents of .secrets/omnifocus-mcp-token>
+```
+
+`pnpm token:generate` writes `.secrets/omnifocus-mcp-token` with private
+permissions and does not print the token. Rotate it with:
+
+```sh
+pnpm token:generate -- --force
+```
+
+## Security
+
+- Bearer auth is required on every request.
 - The bridge refuses to start without `OMNIFOCUS_MCP_TOKEN`,
-  `OMNIFOCUS_MCP_TOKEN_FILE`, or the default private token file.
-- Every HTTP request must include `Authorization: Bearer <token>`.
+  `OMNIFOCUS_MCP_TOKEN_FILE`, or `.secrets/omnifocus-mcp-token`.
+- Token files must be regular files and must not be group/world readable.
 - The default bind host is `127.0.0.1`.
-- Bind `OMNIFOCUS_MCP_HOST` to a Tailscale/private interface when remote access is
-  needed. Do not bind this service to a public interface.
-- For HTTPS over a tailnet, prefer `pnpm start:tailscale`. It keeps the bridge
-  on localhost and exposes it through Tailscale Serve at `/omnifocus-mcp`.
-- The bridge is read-only by default. Mutating OmniFocus tools are hidden and
-  rejected unless `OMNIFOCUS_MCP_READ_ONLY=false` is set explicitly.
-- `.env` is loaded automatically when present. Values already present in the
-  process environment override `.env` values.
+- Read-only mode is enabled by default. Set `OMNIFOCUS_MCP_READ_ONLY=false` only
+  when remote mutation is intended.
+- The upstream OmniFocus server stays local to the Mac and is launched over
+  stdio; no upstream internals are imported.
 
 ## Configuration
 
+`.env` is optional. If present, it is loaded before process environment values,
+so shell, launchd, or service-manager env vars override `.env`.
+
 | Variable | Default | Description |
 | --- | --- | --- |
-| `OMNIFOCUS_MCP_TOKEN_FILE` | `.secrets/omnifocus-mcp-token` when present | Preferred path to a private file containing the bearer token. |
+| `OMNIFOCUS_MCP_TOKEN_FILE` | `.secrets/omnifocus-mcp-token` when present | Private file containing the bearer token. |
 | `OMNIFOCUS_MCP_TOKEN` | none | Direct bearer token override. Avoid inline shell usage because it can leak through history. |
 | `OMNIFOCUS_MCP_ENV_FILE` | `.env` when present | Optional dotenv file path. If explicitly set, the file must exist. |
-| `OMNIFOCUS_MCP_HOST` | `127.0.0.1` | HTTP bind host. Use a private/Tailscale address for remote access. |
+| `OMNIFOCUS_MCP_HOST` | `127.0.0.1` | HTTP bind host. Keep this as `127.0.0.1` for Tailscale Serve mode. |
 | `OMNIFOCUS_MCP_PORT` | `3050` | HTTP bind port. |
 | `OMNIFOCUS_MCP_READ_ONLY` | `true` | Set to `false` to expose mutating upstream tools. |
-| `OMNIFOCUS_MCP_VERBOSE` | `false` | Set to `true` to log redacted request metadata for diagnostics. |
+| `OMNIFOCUS_MCP_VERBOSE` | `false` | Set to `true` for redacted request logs. |
 | `OMNIFOCUS_MCP_UPSTREAM_COMMAND` | Node executable | Optional override for the stdio upstream command. |
-| `OMNIFOCUS_MCP_UPSTREAM_ARGS` | dependency bin path | Optional override args. Supports JSON arrays or shell-like quoted strings. |
+| `OMNIFOCUS_MCP_UPSTREAM_ARGS` | resolved dependency bin path | Optional override args. Supports JSON arrays or shell-like quoted strings. |
 
-Configuration precedence is:
+To expose plain HTTP on a trusted LAN, set `OMNIFOCUS_MCP_HOST=0.0.0.0`. This is
+not HTTPS; prefer Tailscale Serve for remote access.
 
-1. `.env` or `OMNIFOCUS_MCP_ENV_FILE`
-2. real process environment variables
+## Tailscale Serve
 
-That means launchd, shell, or container/service-manager variables override
-checked local dotenv values.
+For tailnet HTTPS:
+
+```sh
+pnpm start:tailscale
+```
+
+This starts the bridge on `127.0.0.1:${OMNIFOCUS_MCP_PORT:-3050}` and runs
+Tailscale Serve in the foreground. With the default port, the Serve command is:
+
+```sh
+tailscale serve --set-path /omnifocus-mcp http://127.0.0.1:3050/mcp
+```
+
+Remote endpoint:
+
+```text
+https://<mac-name>.<tailnet>.ts.net/omnifocus-mcp
+```
+
+The wrapper refuses to overwrite an existing `/omnifocus-mcp` route, leaves
+unrelated Serve routes alone, and does not run `tailscale serve reset`.
 
 ## Upstream Launch
 
-The upstream MCP server is
-[`jqlts1/omnifocus-mcp-enhanced`](https://github.com/jqlts1/omnifocus-mcp-enhanced).
+The upstream package is pinned in `package.json`. At runtime, the bridge:
 
-The bridge resolves the installed package metadata at runtime:
+1. resolves `omnifocus-mcp-enhanced/package.json`
+2. reads the package `bin` entry
+3. starts `node <resolved-bin-path>` as a child stdio MCP process
 
-1. `require.resolve("omnifocus-mcp-enhanced/package.json")`
-2. read the package `bin` entry
-3. resolve `omnifocus-mcp-enhanced -> cli.cjs` inside the dependency directory
-4. start it as a child stdio MCP process with `node <bin-path>`
-
-No upstream internals are imported. The upstream server stays local to the Mac,
-and remote clients only see this bridge's authenticated Streamable HTTP endpoint.
-
-To override the launch command:
+Override launch only when testing a different stdio server:
 
 ```sh
 OMNIFOCUS_MCP_UPSTREAM_COMMAND=node \
@@ -77,8 +108,7 @@ pnpm start
 
 ## Read-Only Mode
 
-When `OMNIFOCUS_MCP_READ_ONLY` is unset or true, only these upstream tools are
-exposed:
+When `OMNIFOCUS_MCP_READ_ONLY` is unset or true, only these tools are exposed:
 
 - `dump_database`
 - `get_task_by_id`
@@ -92,86 +122,11 @@ exposed:
 - `list_custom_perspectives`
 - `get_custom_perspective_tasks`
 
-Known and future unknown tools are blocked by default in read-only mode. Set
-`OMNIFOCUS_MCP_READ_ONLY=false` only on a private network and only when remote
-mutation is intended.
-
-## Usage
-
-```sh
-pnpm install
-pnpm build
-
-pnpm token:generate
-pnpm start
-```
-
-The MCP endpoint is:
-
-```text
-http://127.0.0.1:3050/mcp
-```
-
-Clients must send:
-
-```text
-Authorization: Bearer replace-with-a-long-random-token
-```
-
-`pnpm token:generate` writes a random bearer token to
-`.secrets/omnifocus-mcp-token` with private file permissions. It refuses to
-overwrite an existing token unless you explicitly rotate it:
-
-```sh
-pnpm token:generate -- --force
-```
-
-The token value is not printed. Read it from `.secrets/omnifocus-mcp-token` when
-configuring an MCP client.
-
-The normal startup path does not require a `.env` file. Built-in defaults are:
-
-- `OMNIFOCUS_MCP_HOST=127.0.0.1`
-- `OMNIFOCUS_MCP_PORT=3050`
-- `OMNIFOCUS_MCP_READ_ONLY=true`
-- `OMNIFOCUS_MCP_VERBOSE=false`
-- default upstream command resolved from the pinned `omnifocus-mcp-enhanced`
-  dependency
-- default token file `.secrets/omnifocus-mcp-token`
-
-## Tailscale Serve
-
-For authenticated remote access over tailnet HTTPS, use:
-
-```sh
-pnpm start:tailscale
-```
-
-This starts the local bridge on `127.0.0.1:${OMNIFOCUS_MCP_PORT:-3050}` and then
-runs Tailscale Serve in the foreground:
-
-```sh
-tailscale serve --set-path /omnifocus-mcp http://127.0.0.1:3050/mcp
-```
-
-Do not add `--bg`; the wrapper keeps Tailscale Serve tied to the bridge process
-lifecycle. If Tailscale Serve exits, the bridge exits. If the bridge receives
-`SIGINT` or `SIGTERM`, the wrapper stops Tailscale Serve and closes the upstream
-OmniFocus child process.
-
-The remote MCP endpoint is:
-
-```text
-https://<mac-name>.<tailnet>.ts.net/omnifocus-mcp
-```
-
-The wrapper checks the current Tailscale Serve config before starting. It refuses
-to overwrite an existing `/omnifocus-mcp` route, leaves unrelated Serve routes
-alone, and never runs `tailscale serve reset`.
+Known and unknown mutating tools are blocked in read-only mode.
 
 ## Diagnostics
 
-Use verbose mode when debugging client, broker, or Tailscale Serve access:
+Enable redacted request logs:
 
 ```sh
 pnpm start:tailscale -- --verbose
@@ -183,19 +138,21 @@ or:
 OMNIFOCUS_MCP_VERBOSE=true pnpm start:tailscale
 ```
 
-Verbose mode logs one redacted line per HTTP request after the response finishes.
-It includes method, path, status code, duration, remote address, forwarded-for,
-user agent, content type, accept header, whether an Authorization header was
-present, and whether bearer auth passed. It does not log bearer token values or
-request bodies.
+Verbose logs include method, path, status, duration, remote address,
+forwarded-for, user agent, content type, accept header, whether an Authorization
+header was present, and whether bearer auth passed. They do not include bearer
+tokens or request bodies.
 
-If a client receives `502 Bad Gateway` from the Tailscale URL and no verbose
-request log appears, the request did not reach the bridge. Check that the local
-bridge is listening on `127.0.0.1:3050` and that `tailscale serve status --json`
-still maps `/omnifocus-mcp` to `http://127.0.0.1:3050/mcp`.
+If a client gets `502 Bad Gateway` and no bridge request log appears, the request
+did not reach the bridge. Check:
 
-If a verbose request log appears with `statusCode:401`, the request reached the
-bridge but the bearer token was missing or invalid.
+```sh
+tailscale serve status --json
+lsof -nP -iTCP:3050 -sTCP:LISTEN
+```
+
+If the bridge logs `statusCode:401`, the request reached the bridge but the
+token was missing or invalid.
 
 ## Development
 
@@ -203,13 +160,13 @@ bridge but the bearer token was missing or invalid.
 pnpm install
 pnpm run format:check
 pnpm run lint
+pnpm run typecheck
 pnpm test
-pnpm build
+pnpm run build
 ```
 
-The smoke tests use a fake stdio MCP child process. They do not launch
-OmniFocus or call the real upstream package.
+Tests use a fake stdio MCP child process. They do not launch OmniFocus or call
+the real upstream package.
 
-`pnpm start` is the convenience runner for local operation. It builds
-`dist/index.js` when needed, then starts the bridge with the normal `.env` and
-environment-variable loading rules.
+`pnpm start`, `pnpm start:tailscale`, and `pnpm token:generate` run
+`pnpm run build` before executing compiled output.
