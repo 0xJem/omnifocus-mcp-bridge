@@ -124,6 +124,41 @@ https://<mac-name>.<tailnet>.ts.net/omnifocus-mcp
 The wrapper refuses to overwrite an existing `/omnifocus-mcp` route, leaves
 unrelated Serve routes alone, and does not run `tailscale serve reset`.
 
+## Run in the Background
+
+Use a macOS LaunchAgent, not a LaunchDaemon, so OmniFocus automation runs in the
+logged-in user's GUI session.
+
+```sh
+pnpm launchd:install
+```
+
+This renders `launchd/com.0xjem.omnifocus-mcp-bridge.plist.template` to:
+
+```text
+~/Library/LaunchAgents/com.0xjem.omnifocus-mcp-bridge.plist
+```
+
+The service runs `pnpm start:tailscale`, keeps the bridge alive, and writes logs
+to:
+
+```text
+~/Library/Logs/omnifocus-mcp-bridge/
+```
+
+Check status:
+
+```sh
+launchctl print "gui/$(id -u)/com.0xjem.omnifocus-mcp-bridge"
+tail -f ~/Library/Logs/omnifocus-mcp-bridge/err.log
+```
+
+Uninstall:
+
+```sh
+pnpm launchd:uninstall
+```
+
 ## Upstream Launch
 
 The upstream package is pinned in `package.json`. At runtime, the bridge:
