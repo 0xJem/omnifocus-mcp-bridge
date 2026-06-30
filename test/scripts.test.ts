@@ -16,7 +16,11 @@ describe("runner scripts", () => {
     const script = await readFile(path.join(repoRoot, "scripts", scriptName), "utf8");
 
     if (scriptName === "run-tailscale.sh") {
+      expect(script).toContain('OMNIFOCUS_MCP_BRIDGE_ROOT="$ROOT_DIR"');
       expect(script).toContain("scripts/omnifocus-mcp-bridge.sh");
+    } else if (scriptName === "omnifocus-mcp-bridge.sh") {
+      expect(script).toContain('pnpm --dir "$ROOT_DIR" run build');
+      expect(script).toContain('node "$ROOT_DIR/dist/tailscale-start.js"');
     } else {
       expect(script).toContain("pnpm run build");
     }
@@ -42,6 +46,8 @@ describe("runner scripts", () => {
     );
 
     expect(template).toContain("<string>__LABEL__</string>");
+    expect(template).toContain("<string>__WORKING_DIRECTORY__</string>");
+    expect(template).toContain("<key>OMNIFOCUS_MCP_BRIDGE_ROOT</key>");
     expect(template).toContain("<string>__REPO_ROOT__</string>");
     expect(template).toContain("<string>__LAUNCHER__</string>");
     expect(template).not.toContain("<string>__PNPM__</string>");
@@ -57,7 +63,12 @@ describe("runner scripts", () => {
     );
 
     expect(script).toContain('LABEL="com.0xjem.omnifocus-mcp-bridge"');
-    expect(script).toContain('LAUNCHER_PATH="$ROOT_DIR/scripts/omnifocus-mcp-bridge.sh"');
+    expect(script).toContain(
+      'SERVICE_DIR="$HOME/Library/Application Support/omnifocus-mcp-bridge"',
+    );
+    expect(script).toContain('SOURCE_LAUNCHER_PATH="$ROOT_DIR/scripts/omnifocus-mcp-bridge.sh"');
+    expect(script).toContain('LAUNCHER_PATH="$SERVICE_DIR/omnifocus-mcp-bridge.sh"');
+    expect(script).toContain('cp "$SOURCE_LAUNCHER_PATH" "$LAUNCHER_PATH"');
     expect(script).toContain("$HOME/Library/LaunchAgents/$LABEL.plist");
     expect(script).toContain("launchctl bootstrap");
     expect(script).toContain("launchctl kickstart -k");

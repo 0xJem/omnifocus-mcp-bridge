@@ -7,7 +7,7 @@
   <string>__LABEL__</string>
 
   <key>WorkingDirectory</key>
-  <string>__REPO_ROOT__</string>
+  <string>__WORKING_DIRECTORY__</string>
 
   <key>ProgramArguments</key>
   <array>
@@ -16,6 +16,8 @@
 
   <key>EnvironmentVariables</key>
   <dict>
+    <key>OMNIFOCUS_MCP_BRIDGE_ROOT</key>
+    <string>__REPO_ROOT__</string>
     <key>PATH</key>
     <string>__PATH__</string>
   </dict>

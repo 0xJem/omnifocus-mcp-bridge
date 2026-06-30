@@ -139,9 +139,10 @@ This renders `launchd/com.0xjem.omnifocus-mcp-bridge.plist.template` to:
 ~/Library/LaunchAgents/com.0xjem.omnifocus-mcp-bridge.plist
 ```
 
-The service runs `scripts/omnifocus-mcp-bridge.sh`, so macOS Login Items show a
-named bridge entry instead of `pnpm`. It keeps the bridge alive and writes logs
-to:
+The service runs an installed copy of `scripts/omnifocus-mcp-bridge.sh`, so
+macOS Login Items show a named bridge entry instead of `pnpm`. The installed
+launcher lives outside `~/Documents` to avoid macOS background-item privacy
+restrictions, keeps the bridge alive, and writes logs to:
 
 ```text
 ~/Library/Logs/omnifocus-mcp-bridge/

@@ -6,6 +6,7 @@ LABEL="com.0xjem.omnifocus-mcp-bridge"
 ROOT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 TEMPLATE="$ROOT_DIR/launchd/$LABEL.plist.template"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+SERVICE_DIR="$HOME/Library/Application Support/omnifocus-mcp-bridge"
 LOG_DIR="$HOME/Library/Logs/omnifocus-mcp-bridge"
 STDOUT_LOG="$LOG_DIR/out.log"
 STDERR_LOG="$LOG_DIR/err.log"
@@ -13,6 +14,7 @@ GUI_DOMAIN="gui/$(id -u)"
 PNPM_PATH=""
 NODE_PATH=""
 TAILSCALE_PATH=""
+SOURCE_LAUNCHER_PATH="$ROOT_DIR/scripts/omnifocus-mcp-bridge.sh"
 LAUNCHER_PATH=""
 SERVICE_PATH=""
 
@@ -37,6 +39,7 @@ render_template() {
   sed \
     -e "s#__LABEL__#$(xml_escape "$LABEL")#g" \
     -e "s#__REPO_ROOT__#$(xml_escape "$ROOT_DIR")#g" \
+    -e "s#__WORKING_DIRECTORY__#$(xml_escape "$SERVICE_DIR")#g" \
     -e "s#__LAUNCHER__#$(xml_escape "$LAUNCHER_PATH")#g" \
     -e "s#__PATH__#$(xml_escape "$SERVICE_PATH")#g" \
     -e "s#__STDOUT_LOG__#$(xml_escape "$STDOUT_LOG")#g" \
@@ -53,7 +56,7 @@ require_command plutil
 PNPM_PATH="$(command -v pnpm)"
 NODE_PATH="$(command -v node)"
 TAILSCALE_PATH="$(command -v tailscale)"
-LAUNCHER_PATH="$ROOT_DIR/scripts/omnifocus-mcp-bridge.sh"
+LAUNCHER_PATH="$SERVICE_DIR/omnifocus-mcp-bridge.sh"
 SERVICE_PATH="$(dirname "$PNPM_PATH"):$(dirname "$NODE_PATH"):$(dirname "$TAILSCALE_PATH"):$PATH"
 
 if [ ! -f "$ROOT_DIR/.secrets/omnifocus-mcp-token" ]; then
@@ -61,7 +64,9 @@ if [ ! -f "$ROOT_DIR/.secrets/omnifocus-mcp-token" ]; then
   exit 1
 fi
 
-mkdir -p "$HOME/Library/LaunchAgents" "$LOG_DIR"
+mkdir -p "$HOME/Library/LaunchAgents" "$SERVICE_DIR" "$LOG_DIR"
+cp "$SOURCE_LAUNCHER_PATH" "$LAUNCHER_PATH"
+chmod 755 "$LAUNCHER_PATH"
 render_template > "$PLIST"
 plutil -lint "$PLIST" >/dev/null
 
@@ -72,4 +77,5 @@ launchctl kickstart -k "$GUI_DOMAIN/$LABEL"
 
 echo "Installed and started $LABEL"
 echo "Plist: $PLIST"
+echo "Launcher: $LAUNCHER_PATH"
 echo "Logs:  $LOG_DIR"
