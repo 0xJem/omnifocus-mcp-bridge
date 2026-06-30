@@ -139,7 +139,8 @@ This renders `launchd/com.0xjem.omnifocus-mcp-bridge.plist.template` to:
 ~/Library/LaunchAgents/com.0xjem.omnifocus-mcp-bridge.plist
 ```
 
-The service runs `pnpm start:tailscale`, keeps the bridge alive, and writes logs
+The service runs `scripts/omnifocus-mcp-bridge.sh`, so macOS Login Items show a
+named bridge entry instead of `pnpm`. It keeps the bridge alive and writes logs
 to:
 
 ```text

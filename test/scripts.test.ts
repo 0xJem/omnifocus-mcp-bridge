@@ -11,10 +11,15 @@ describe("runner scripts", () => {
     "run-server.sh",
     "run-tailscale.sh",
     "generate-token.sh",
+    "omnifocus-mcp-bridge.sh",
   ])("%s rebuilds before executing compiled output", async (scriptName) => {
     const script = await readFile(path.join(repoRoot, "scripts", scriptName), "utf8");
 
-    expect(script).toContain("pnpm run build");
+    if (scriptName === "run-tailscale.sh") {
+      expect(script).toContain("scripts/omnifocus-mcp-bridge.sh");
+    } else {
+      expect(script).toContain("pnpm run build");
+    }
     expect(script).not.toMatch(/if \[ ! -f dist\//);
   });
 
@@ -38,8 +43,9 @@ describe("runner scripts", () => {
 
     expect(template).toContain("<string>__LABEL__</string>");
     expect(template).toContain("<string>__REPO_ROOT__</string>");
-    expect(template).toContain("<string>__PNPM__</string>");
-    expect(template).toContain("<string>start:tailscale</string>");
+    expect(template).toContain("<string>__LAUNCHER__</string>");
+    expect(template).not.toContain("<string>__PNPM__</string>");
+    expect(template).not.toContain("<string>start:tailscale</string>");
     expect(template).toContain("<key>RunAtLoad</key>");
     expect(template).toContain("<key>KeepAlive</key>");
   });
@@ -51,6 +57,7 @@ describe("runner scripts", () => {
     );
 
     expect(script).toContain('LABEL="com.0xjem.omnifocus-mcp-bridge"');
+    expect(script).toContain('LAUNCHER_PATH="$ROOT_DIR/scripts/omnifocus-mcp-bridge.sh"');
     expect(script).toContain("$HOME/Library/LaunchAgents/$LABEL.plist");
     expect(script).toContain("launchctl bootstrap");
     expect(script).toContain("launchctl kickstart -k");

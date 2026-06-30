@@ -13,6 +13,7 @@ GUI_DOMAIN="gui/$(id -u)"
 PNPM_PATH=""
 NODE_PATH=""
 TAILSCALE_PATH=""
+LAUNCHER_PATH=""
 SERVICE_PATH=""
 
 require_command() {
@@ -36,7 +37,7 @@ render_template() {
   sed \
     -e "s#__LABEL__#$(xml_escape "$LABEL")#g" \
     -e "s#__REPO_ROOT__#$(xml_escape "$ROOT_DIR")#g" \
-    -e "s#__PNPM__#$(xml_escape "$PNPM_PATH")#g" \
+    -e "s#__LAUNCHER__#$(xml_escape "$LAUNCHER_PATH")#g" \
     -e "s#__PATH__#$(xml_escape "$SERVICE_PATH")#g" \
     -e "s#__STDOUT_LOG__#$(xml_escape "$STDOUT_LOG")#g" \
     -e "s#__STDERR_LOG__#$(xml_escape "$STDERR_LOG")#g" \
@@ -52,6 +53,7 @@ require_command plutil
 PNPM_PATH="$(command -v pnpm)"
 NODE_PATH="$(command -v node)"
 TAILSCALE_PATH="$(command -v tailscale)"
+LAUNCHER_PATH="$ROOT_DIR/scripts/omnifocus-mcp-bridge.sh"
 SERVICE_PATH="$(dirname "$PNPM_PATH"):$(dirname "$NODE_PATH"):$(dirname "$TAILSCALE_PATH"):$PATH"
 
 if [ ! -f "$ROOT_DIR/.secrets/omnifocus-mcp-token" ]; then

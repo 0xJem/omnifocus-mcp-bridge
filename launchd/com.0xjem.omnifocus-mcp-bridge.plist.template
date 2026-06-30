@@ -11,8 +11,7 @@
 
   <key>ProgramArguments</key>
   <array>
-    <string>__PNPM__</string>
-    <string>start:tailscale</string>
+    <string>__LAUNCHER__</string>
   </array>
 
   <key>EnvironmentVariables</key>
