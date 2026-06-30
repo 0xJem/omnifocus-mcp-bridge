@@ -1,6 +1,7 @@
 # omnifocus-mcp-bridge
 
-Authenticated Streamable HTTP bridge for the published `omnifocus-mcp-enhanced`
+Authenticated Streamable HTTP bridge for the published
+[`omnifocus-mcp-enhanced`](https://github.com/jqlts1/omnifocus-mcp-enhanced)
 stdio MCP server.
 
 This repository is intentionally separate from the upstream server code. It
@@ -52,6 +53,9 @@ That means launchd, shell, or container/service-manager variables override
 checked local dotenv values.
 
 ## Upstream Launch
+
+The upstream MCP server is
+[`jqlts1/omnifocus-mcp-enhanced`](https://github.com/jqlts1/omnifocus-mcp-enhanced).
 
 The bridge resolves the installed package metadata at runtime:
 
